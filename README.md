@@ -1,6 +1,6 @@
 # CI/CD на Go с публикацией Docker-образа в GHCR
 
-Цель практики — проверить Go-приложение, упаковать его в Docker-образ и подготовить автоматическую доставку образа в GitHub Container Registry. Программа выводит приветствие, сумму чисел от 1 до 10, сведения о платформе и переданные аргументы. [Методичка преподавателя](https://github.com/rurewa/imfua/blob/main/content/DevOps/CI_CD/Pipelines/CI_CD_Go.md)
+Цель практики — проверить Go-приложение, упаковать его в Docker-образ и автоматически опубликовать образ в GitHub Container Registry. Программа выводит приветствие, сумму чисел от 1 до 10, сведения о платформе и переданные аргументы. [Методичка преподавателя](https://github.com/rurewa/imfua/blob/main/content/DevOps/CI_CD/Pipelines/CI_CD_Go.md)
 
 ## Структура проекта
 
@@ -13,7 +13,7 @@
 | `Dockerfile` | Сборка статического Linux-бинарника в `golang:1.23-alpine` и запуск в `alpine:3.24` от `appuser`. |
 | `.github/workflows/ci.yml` | Workflow для корня отдельного репозитория `hello-go`. |
 | `.gitignore`, `.dockerignore` | Исключения для локальных файлов и ограничение контекста сборки исходниками Go. |
-| `screenshots/` | Снимки локальных проверок. |
+| `screenshots/` | Снимки локальных проверок, GitHub Actions и GHCR. |
 
 ## Как работают CI и CI/CD
 
@@ -86,21 +86,40 @@ docker run --rm --network none profile-test-ci-cd-go:local Docker GHCR
 
 ![Программа вывела Linux, amd64, приветствие, сумму 55 и переданные аргументы](screenshots/04-docker-run.png)
 
-## GitHub Actions и публикация в GHCR
+## Результаты GitHub Actions и GHCR
 
-Workflow хранится в корне репозитория по пути [.github/workflows/ci.yml](.github/workflows/ci.yml). GitHub Actions запускает его при pull request и при push в `main`.
+После первого push в `main` workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) успешно выполнил оба задания для коммита `c253400`. [Запуск Go CI/CD № 1](https://github.com/aleks-maker-maker/hello-go/actions/runs/44513148323)
 
-Проверка опубликованного образа:
+- **Check Go and Docker** проверил форматирование, выполнил `go vet ./...` и `go test ./... -v`, собрал Go-бинарник. [Задание CI](https://github.com/aleks-maker-maker/hello-go/actions/runs/44513148323/job/135522230047)
+- **Build and publish to GHCR** собрал Docker-образ и опубликовал его со встроенным `GITHUB_TOKEN`. При первой публикации теги `latest` и `c253400` указывали на один образ. Оба тега скачались без входа в реестр. [Задание публикации](https://github.com/aleks-maker-maker/hello-go/actions/runs/44513148323/job/135522501708) · [Пакет hello-go в GHCR](https://github.com/users/aleks-maker-maker/packages/container/hello-go)
+- Скачанный образ запустился локально и вывел `OS: linux`, `Arch: amd64`, `Hello, Docker!` и `Sum 1..10 = 55`.
 
-1. В разделе **Actions** откройте запуск **Go CI/CD** для этого коммита. Проверьте успешное завершение заданий **Check Go and Docker** и **Build and publish to GHCR**.
-1. Откройте **Packages → hello-go**. Сверьте теги `latest` и короткий SHA коммита с результатами запуска. Для публикации workflow использует встроенный `GITHUB_TOKEN` с `packages: write` в задании публикации. [GitHub Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
-1. После публикации проверьте образ под учётной записью с доступом к пакету. Для публичного пакета эти команды работают без входа в GHCR.
+### Первый успешный запуск workflow
+
+![GitHub Actions показывает Success для первого push в main и два успешных задания](screenshots/05-actions-workflow.png)
+
+### Проверки и сборка Go
+
+![Успешные шаги проверки форматирования, go vet, тестов и сборки Go-бинарника](screenshots/06-ci-job.png)
+
+### Сборка и публикация образа
+
+![Успешные шаги входа в GHCR, сборки и отправки образа](screenshots/07-publish-job.png)
+
+### Теги первой публикации
+
+![Публичный пакет hello-go с тегами latest и c253400 после первого запуска](screenshots/08-ghcr-tags.png)
+
+### Скачивание и локальный запуск
+
+![Docker проверил образ из GHCR, а контейнер вывел приветствие и сумму 55](screenshots/09-ghcr-docker-run.png)
+
+### Как повторить проверку
+
+Откройте [список запусков Go CI/CD](https://github.com/aleks-maker-maker/hello-go/actions/workflows/ci.yml) и выберите запуск для нужного коммита в `main`. Для воспроизведения результата на скриншотах используйте тег первого коммита `c253400`. Тег `latest` обновляется при каждой успешной публикации из `main`.
 
 ~~~powershell
-$ghcrOwner = (Read-Host 'Владелец репозитория hello-go').ToLowerInvariant()
-$remoteImage = "ghcr.io/$ghcrOwner/hello-go:latest"
+$remoteImage = 'ghcr.io/aleks-maker-maker/hello-go:c253400'
 docker pull $remoteImage
-docker run --rm $remoteImage
+docker run --rm --network none $remoteImage
 ~~~
-
-Результаты локальных проверок приведены выше. Статус отправки образа можно проверить в Actions и Packages. Видимость пакета настраивается отдельно.
